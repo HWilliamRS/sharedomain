@@ -15,6 +15,10 @@ module.exports = function (grunt) {
   // Time how long tasks take. Can help when optimizing build times
   require('time-grunt')(grunt);
 
+  var modRewrite = require('connect-modrewrite');
+
+  grunt.loadNpmTasks('grunt-connect-proxy');
+
   // Configurable paths for the application
   var appConfig = {
     app: require('./bower.json').appPath || 'app',
@@ -71,11 +75,45 @@ module.exports = function (grunt) {
         hostname: 'localhost',
         livereload: 35729
       },
+      proxies: [
+          {
+              context: '/api',
+              host: 'localhost',
+              port: 8000,
+              https: false
+          }
+      ],
       livereload: {
         options: {
           open: true,
-          middleware: function (connect) {
+          base: [
+           '.tmp',
+           '<%= yeoman.app %>'
+          ],
+          middleware: function (connect,options) {
+
+            var middlewares = [];
+            
+            if (!Array.isArray(options.base)) {
+              options.base = [options.base];
+            }
+
+            // Set up the proxy
+            middlewares.push(require('grunt-connect-proxy/lib/utils').proxyRequest);
+
+            //server static files
+            middlewares.push(
+              connect.static('.tmp'),
+              connect().use(
+                '/bower_components',
+                 connect.static('./bower_components')
+              ),
+              connect.static(appConfig.app)
+            );
+
+            /*
             return [
+              //modRewrite(['^[^\\.]*$ /index.html [L]']),
               connect.static('.tmp'),
               connect().use(
                 '/bower_components',
@@ -83,6 +121,8 @@ module.exports = function (grunt) {
               ),
               connect.static(appConfig.app)
             ];
+            */     
+            return middlewares;
           }
         }
       },
@@ -385,6 +425,7 @@ module.exports = function (grunt) {
       'wiredep',
       'concurrent:server',
       'autoprefixer',
+      'configureProxies:server',
       'connect:livereload',
       'watch'
     ]);
